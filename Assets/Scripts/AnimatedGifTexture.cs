@@ -5,6 +5,7 @@ using UnityEngine.Networking;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System;
 
 /// <summary>  
 ///  This component loads an animated gif from the web, and creates a Texture2D with tiled frames.
@@ -34,33 +35,6 @@ public class AnimatedGifTexture : MonoBehaviour {
 	private void Awake()
 	{
 		uiImagesToUpdate = new HashSet<UnityEngine.UI.Image>();
-	}
-
-	/// <summary>  
-	/// Clear existing gif
-	/// </summary>  
-	/*
-	private void Clear()
-	{
-		gifUrl = "";
-		numberOfFrames = 0;
-		currentXTileOffset = 0f;
-		offsetStep = 0f;
-		texture = null;
-		if (uiImage != null)
-		{
-			uiImage.material.SetTexture("_MainTex", null);
-		}
-	}
-	*/
-
-	/// <summary>  
-	/// Pass in a url for an animated gif
-	/// Doesn't do anything with it yet.
-	/// </summary>  
-	public void SetGifUrl(string url)
-	{
-		gifUrl = url;
 	}
 
 	/// <summary>  
@@ -137,6 +111,19 @@ public class AnimatedGifTexture : MonoBehaviour {
 		}
 	}
 
+	/// <summary>
+	/// Add the UI Image object so that during Update we can let that image know that
+	/// its material needs a redraw.
+	/// </summary>
+	/// <param name="imageToAdd"></param>
+	public void AddImageToUpdate(UnityEngine.UI.Image imageToAdd)
+	{
+		if (!uiImagesToUpdate.Contains(imageToAdd))
+		{
+			uiImagesToUpdate.Add(imageToAdd);
+		}
+	}
+
 	/// <summary>  
 	///  For every frame of animation, copy into a flattened texture.
 	///  TODO - detect when we need to do more sophisticated tiling or we need more than one texture.
@@ -169,7 +156,7 @@ public class AnimatedGifTexture : MonoBehaviour {
 	///  TODO - can probably optimize by using coroutine for update instead of using the Update method.
 	/// </summary>  
 	void Update () {
-		if (numberOfFrames == 0) return;
+		if (numberOfFrames == 0 || uiImagesToUpdate == null) return;
 
 		if (Time.time-timeOfLastUpdate > timeUpdateStep)
 		{
@@ -183,26 +170,6 @@ public class AnimatedGifTexture : MonoBehaviour {
 				uiImage.material.SetTextureOffset("_MainTex", new Vector2(currentXTileOffset, 0f));
 			}
 		}
-	}
-
-	public Texture2D GetTexture2D()
-	{
-		return texture;
-	}
-
-	public void UseThisAnimatedGif(AnimatedGifTexture inputAnimatedGif, Texture2D tex)
-	{
-		//Clear();
-		FramesPerSecond = inputAnimatedGif.FramesPerSecond;
-		texture = tex;
-		numberOfFrames = inputAnimatedGif.numberOfFrames;
-		offsetStep = inputAnimatedGif.offsetStep; // 0f; // inputAnimatedGif.offsetStep;
-		gifUrl = inputAnimatedGif.gifUrl;
-		/*
-		uiImage = GetComponent<UnityEngine.UI.Image>();
-		uiImage.material.SetTexture("_MainTex", texture);
-		uiImage.SetMaterialDirty();
-		*/
 	}
 }
 

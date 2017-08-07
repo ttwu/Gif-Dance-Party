@@ -22,8 +22,6 @@ public class UITransition : MonoBehaviour
 		var scaleValue = isShowing ? 1f : 0f;
 		//TODO - make this transition prettier
 		transform.localScale = new Vector3(scaleValue, scaleValue, scaleValue);
-
-		//activate/deactive only as needed so this gif doesn't waste cycles when it's hidden
 		gifPreviewGO.SetActive(isShowing);
 
 		if (isShowing && !isInitialized)
