@@ -9,7 +9,10 @@ using System.IO;
 /// <summary>  
 ///  This component loads an animated gif from the web, and creates a Texture2D with tiled frames.
 ///  Upon Update it will update the UVs of the texture accordingly to animate the texture.
-///  TODO - detect when animated gif is too big to store in just one texture and support multi-texture
+///  TODO 
+///  - detect when animated gif is too big to store in just one texture and support multi-texture
+///  - more optimization by having texture dimensions be powers of 2?
+///  - pull animation timing information from gif (check here https://social.microsoft.com/Forums/en-US/fcb7d14d-d15b-4336-971c-94a80e34b85e/editing-animated-gifs-in-c?forum=netfxbcl)
 /// </summary>  
 public class AnimatedGifTexture : MonoBehaviour {
 	private UnityWebRequest webRequest;
@@ -27,25 +30,63 @@ public class AnimatedGifTexture : MonoBehaviour {
 	private float currentXTileOffset = 0f;
 	private float offsetStep = 0f;
 	private float timeOfLastUpdate = 0;
+	private string gifUrl;
 
 	/// <summary>  
-	///  
+	/// Clear existing gif
 	/// </summary>  
-	private void Start()
+	private void Clear()
+	{
+		gifUrl = "";
+		numberOfFrames = 0;
+		textures = null;
+		currentXTileOffset = 0f;
+		offsetStep = 0f;
+		if (uiImage != null)
+		{
+			uiImage.material.SetTexture("_MainTex", null);
+		}
+	}
+
+	/// <summary>  
+	/// Pass in a url for an animated gif
+	/// Doesn't do anything with it yet.
+	/// </summary>  
+	public void SetGifUrl(string url)
+	{
+		gifUrl = url;
+	}
+
+	/// <summary>  
+	/// Load gif from new url, sets textures and materials.
+	/// </summary>  
+	public void LoadAndShowGif(string newUrl)
+	{
+		Clear();
+		gifUrl = newUrl;
+		LoadAndShowGif();
+	}
+
+	/// <summary>  
+	/// Load gif from current url, sets textures and materials.
+	/// TODO - test with invalid links or png/jpg
+	/// </summary>  
+	public void LoadAndShowGif()
 	{
 		uiImage = GetComponent<UnityEngine.UI.Image>();
 		rectTransform = GetComponent<RectTransform>();
 		timeUpdateStep = 1f / FramesPerSecond;
-		string url = "https://media.giphy.com/media/sg32LhHk9RVLi/giphy.gif";
-		//"https://media.giphy.com/media/VxbvpfaTTo3le/giphy.gif";
-		//"https://media.giphy.com/media/sg32LhHk9RVLi/giphy.gif";
-		StartCoroutine(GetWebGif(url));
+		currentXTileOffset = 0f;
+		if (textures == null)
+		{
+			StartCoroutine(GetWebGifAndSetTexture(gifUrl));
+		}
 	}
 
 	/// <summary>  
-	///  Load animated gif, tile frames into a Texture2D.
+	///  Load animated gif from url, tile frames into a Texture2D.
 	/// </summary>  
-	IEnumerator GetWebGif(string url)
+	IEnumerator GetWebGifAndSetTexture(string url)
 	{
 		webRequest = new UnityWebRequest(url);
 		webRequest.downloadHandler = new DownloadHandlerBuffer();
@@ -66,6 +107,10 @@ public class AnimatedGifTexture : MonoBehaviour {
 		}
 	}
 
+	/// <summary>  
+	///  Hookup texture to material, set the offsetStep so Update will know how to iterate.
+	///  Poke the material so it knows to draw the texture change.
+	/// </summary>  
 	void InitializeMaterialAndTexture(int width, int height, int numberOfFrames)
 	{
 		uiImage.material.SetTexture("_MainTex", textures[0]);
@@ -76,6 +121,10 @@ public class AnimatedGifTexture : MonoBehaviour {
 		uiImage.SetMaterialDirty();
 	}
 
+	/// <summary>  
+	///  For every frame of animation, copy into a flattened texture.
+	///  TODO - detect when we need to do more sophisticated tiling or we need more than one texture.
+	/// </summary>  
 	Texture2D[] SetupTextures(int frameWidth, int frameHeight, int frameCount, Image image)
 	{
 		Texture2D tex = new Texture2D(frameWidth*frameCount, frameHeight);
@@ -110,9 +159,27 @@ public class AnimatedGifTexture : MonoBehaviour {
 		{
 			timeOfLastUpdate = Time.time;
 			currentXTileOffset += offsetStep;
+			if (currentXTileOffset > 1f)
+				currentXTileOffset -= 1f;
 			uiImage.material.SetTextureOffset("_MainTex", new Vector2(currentXTileOffset, 0f));
 		}
 	}
 
+	public Texture2D GetTexture2D()
+	{
+		return textures[0];
+	}
+
+	public void UseThisAnimatedGif(AnimatedGifTexture inputAnimatedGif)
+	{
+		Clear();
+		FramesPerSecond = inputAnimatedGif.FramesPerSecond;
+		textures = inputAnimatedGif.textures;
+		numberOfFrames = inputAnimatedGif.numberOfFrames;
+		offsetStep = inputAnimatedGif.offsetStep;
+		gifUrl = inputAnimatedGif.gifUrl;
+		uiImage = GetComponent<UnityEngine.UI.Image>();
+		//CONTINUE HERE!!! some how they're affecting each other's scrolling...
+	}
 }
 
