@@ -19,10 +19,9 @@ public class AnimatedGifTexture : MonoBehaviour {
 	private byte[] imageBuffer;
 	private int numberOfFrames = 0;
 
-	//use an array in case a large animated gif causes us to run out of space on Texture2D
-	//this will allow us to use multiple textures for a large gif
-	private Texture2D[] textures;
-	private UnityEngine.UI.Image uiImage;
+	//TODO - use an array in case a large animated gif causes us to run out of space on one Texture2D
+	public Texture2D texture;
+	private HashSet<UnityEngine.UI.Image> uiImagesToUpdate;
 	private RectTransform rectTransform;
 
 	public int FramesPerSecond = 10;
@@ -32,21 +31,28 @@ public class AnimatedGifTexture : MonoBehaviour {
 	private float timeOfLastUpdate = 0;
 	private string gifUrl;
 
+	private void Awake()
+	{
+		uiImagesToUpdate = new HashSet<UnityEngine.UI.Image>();
+	}
+
 	/// <summary>  
 	/// Clear existing gif
 	/// </summary>  
+	/*
 	private void Clear()
 	{
 		gifUrl = "";
 		numberOfFrames = 0;
-		textures = null;
 		currentXTileOffset = 0f;
 		offsetStep = 0f;
+		texture = null;
 		if (uiImage != null)
 		{
 			uiImage.material.SetTexture("_MainTex", null);
 		}
 	}
+	*/
 
 	/// <summary>  
 	/// Pass in a url for an animated gif
@@ -60,12 +66,19 @@ public class AnimatedGifTexture : MonoBehaviour {
 	/// <summary>  
 	/// Load gif from new url, sets textures and materials.
 	/// </summary>  
-	public void LoadAndShowGif(string newUrl)
+	public void LoadAndShowGif(string newUrl, UnityEngine.UI.Image targetImage)
 	{
-		Clear();
 		gifUrl = newUrl;
-		LoadAndShowGif();
+		if (!uiImagesToUpdate.Contains(targetImage))
+		{
+			uiImagesToUpdate.Add(targetImage);
+		}
+		if (texture == null)
+		{
+			LoadAndShowGif();
+		}
 	}
+
 
 	/// <summary>  
 	/// Load gif from current url, sets textures and materials.
@@ -73,11 +86,10 @@ public class AnimatedGifTexture : MonoBehaviour {
 	/// </summary>  
 	public void LoadAndShowGif()
 	{
-		uiImage = GetComponent<UnityEngine.UI.Image>();
 		rectTransform = GetComponent<RectTransform>();
 		timeUpdateStep = 1f / FramesPerSecond;
 		currentXTileOffset = 0f;
-		if (textures == null)
+		if (texture == null)
 		{
 			StartCoroutine(GetWebGifAndSetTexture(gifUrl));
 		}
@@ -102,7 +114,7 @@ public class AnimatedGifTexture : MonoBehaviour {
 			Image image = Image.FromStream(new MemoryStream(imageBuffer));
 			numberOfFrames = image.GetFrameCount(FrameDimension.Time);
 
-			textures = SetupTextures(image.Width, image.Height, numberOfFrames, image);
+			texture = SetupTexture(image.Width, image.Height, numberOfFrames, image);
 			InitializeMaterialAndTexture(image.Width, image.Height, numberOfFrames);
 		}
 	}
@@ -113,19 +125,23 @@ public class AnimatedGifTexture : MonoBehaviour {
 	/// </summary>  
 	void InitializeMaterialAndTexture(int width, int height, int numberOfFrames)
 	{
-		uiImage.material.SetTexture("_MainTex", textures[0]);
+		
 		rectTransform.sizeDelta = new Vector2(width, height);
 		offsetStep = 1f / (float)numberOfFrames;
-		uiImage.material.SetTextureOffset("_MainTex", new Vector2(0f, 0f));
-		uiImage.material.SetTextureScale("_MainTex", new Vector2(offsetStep, 1f));
-		uiImage.SetMaterialDirty();
+		foreach(var uiImage in uiImagesToUpdate)
+		{
+			uiImage.material.SetTexture("_MainTex", texture);
+			uiImage.material.SetTextureOffset("_MainTex", new Vector2(0f, 0f));
+			uiImage.material.SetTextureScale("_MainTex", new Vector2(offsetStep, 1f));
+			uiImage.SetMaterialDirty();
+		}
 	}
 
 	/// <summary>  
 	///  For every frame of animation, copy into a flattened texture.
 	///  TODO - detect when we need to do more sophisticated tiling or we need more than one texture.
 	/// </summary>  
-	Texture2D[] SetupTextures(int frameWidth, int frameHeight, int frameCount, Image image)
+	Texture2D SetupTexture(int frameWidth, int frameHeight, int frameCount, Image image)
 	{
 		Texture2D tex = new Texture2D(frameWidth*frameCount, frameHeight);
 		int xOffset = 0;
@@ -145,7 +161,7 @@ public class AnimatedGifTexture : MonoBehaviour {
 			xOffset += frameWidth;
 		}
 		tex.Apply();
-		return new Texture2D[] { tex };
+		return tex;
 	}
 
 	/// <summary>  
@@ -161,25 +177,32 @@ public class AnimatedGifTexture : MonoBehaviour {
 			currentXTileOffset += offsetStep;
 			if (currentXTileOffset > 1f)
 				currentXTileOffset -= 1f;
-			uiImage.material.SetTextureOffset("_MainTex", new Vector2(currentXTileOffset, 0f));
+
+			foreach (var uiImage in uiImagesToUpdate)
+			{
+				uiImage.material.SetTextureOffset("_MainTex", new Vector2(currentXTileOffset, 0f));
+			}
 		}
 	}
 
 	public Texture2D GetTexture2D()
 	{
-		return textures[0];
+		return texture;
 	}
 
-	public void UseThisAnimatedGif(AnimatedGifTexture inputAnimatedGif)
+	public void UseThisAnimatedGif(AnimatedGifTexture inputAnimatedGif, Texture2D tex)
 	{
-		Clear();
+		//Clear();
 		FramesPerSecond = inputAnimatedGif.FramesPerSecond;
-		textures = inputAnimatedGif.textures;
+		texture = tex;
 		numberOfFrames = inputAnimatedGif.numberOfFrames;
-		offsetStep = inputAnimatedGif.offsetStep;
+		offsetStep = inputAnimatedGif.offsetStep; // 0f; // inputAnimatedGif.offsetStep;
 		gifUrl = inputAnimatedGif.gifUrl;
+		/*
 		uiImage = GetComponent<UnityEngine.UI.Image>();
-		//CONTINUE HERE!!! some how they're affecting each other's scrolling...
+		uiImage.material.SetTexture("_MainTex", texture);
+		uiImage.SetMaterialDirty();
+		*/
 	}
 }
 

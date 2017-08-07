@@ -10,33 +10,51 @@ using UnityEngine;
 public class GifManager : MonoBehaviour
 {
 	//track Textures that are currently being used 
-	private Dictionary<string, Texture2D> urlToTexture;
+	private Dictionary<string, AnimatedGifTexture> animatedTextureCompCache;
+	public List<Texture2D> textureCache;
 	//url results to page through
 	private string[] urls;
 	private int currentGifIndex = 0;
 
 	[SerializeField]
-	private AnimatedGifTexture previewGif;
+	private UnityEngine.UI.Image previewImage;
 	[SerializeField]
 	private Transform locatorGroup;
 	private Transform[] locators;
 	private int currentLocatorIndex = 0;
 	[SerializeField]
 	private GameObject animatedGifPrefabGameObject;
+	[SerializeField]
+	private Material animatedGifMtl;
 
 	/// <summary>
 	/// Initialize the dictionary and set a starting gif url for the preview.
 	/// </summary>
 	private void Start()
 	{
-		urlToTexture = new Dictionary<string, Texture2D>();
+		textureCache = new List<Texture2D>();
+		//texture2DCache = new Dictionary<string, Texture2D>();
+		animatedTextureCompCache = new Dictionary<string, AnimatedGifTexture>();
 		urls = GiphyQuery.GetGifUrls(0);
-		previewGif.SetGifUrl(urls[0]);
+		//previewGif.SetGifUrl(urls[0]);
 		var numLocators = locatorGroup.GetChildCount();
 		locators = new Transform[numLocators];
 		for(var i=0; i<numLocators; i++)
 		{
 			locators[i] = locatorGroup.GetChild(i);
+		}
+	}
+
+	public void InitializePreview()
+	{
+		var currentUrl = urls[currentGifIndex];
+		if (!animatedTextureCompCache.ContainsKey(currentUrl))
+		{
+			var newComponent = gameObject.AddComponent<AnimatedGifTexture>();
+			newComponent.LoadAndShowGif(currentUrl, previewImage);
+			/*
+			animatedTextureCompCache.Add(currentUrl, newComponent);
+			*/
 		}
 	}
 
@@ -46,9 +64,26 @@ public class GifManager : MonoBehaviour
 	/// <param name="indexStep"></param>
 	public void ScrollGifSelection(int indexStep)
 	{
+		CacheCurrentTexture();
+
 		currentGifIndex = (currentGifIndex + indexStep) % urls.Length;
 		if (currentGifIndex < 0) currentGifIndex += urls.Length;
-		previewGif.LoadAndShowGif(urls[currentGifIndex]);
+
+		var currentGifUrl = urls[currentGifIndex];
+		//if (texture2DCache.ContainsKey(currentGifUrl))
+
+		//previewGif.LoadAndShowGif(currentGifUrl);
+	}
+
+	void CacheCurrentTexture()
+	{
+		var currentUrl = urls[currentGifIndex];
+		if (!animatedTextureCompCache.ContainsKey(currentUrl))
+		{
+			//texture2DCache.Add(currentUrl, previewGif.GetTexture2D());
+			//animatedTextureCompCache.Add(currentUrl, previewGif);
+			//textureCache.Add(previewGif.GetTexture2D());
+		}
 	}
 
 	/// <summary>
@@ -65,13 +100,12 @@ public class GifManager : MonoBehaviour
 			var newGifGO = Instantiate<GameObject>(animatedGifPrefabGameObject, currentLocator);
 			gifTexture = newGifGO.GetComponent<AnimatedGifTexture>();
 		}
-		//gifTexture.LoadAndShowGif(urls[currentGifIndex]);
-		var tex = previewGif.GetTexture2D();
-		if (!urlToTexture.ContainsKey(urls[currentGifIndex]))
+		//var tex = previewGif.GetTexture2D();
+		if (!animatedTextureCompCache.ContainsKey(urls[currentGifIndex]))
 		{
-			urlToTexture.Add(urls[currentGifIndex], tex);
+			//animatedTextureCompCache.Add(urls[currentGifIndex], tex);
 		}
-		gifTexture.UseThisAnimatedGif(previewGif);  //RESUME HERE!!
+		//gifTexture.UseThisAnimatedGif(previewGif, tex);  //RESUME HERE!!
 		currentLocatorIndex = (currentLocatorIndex + 1)%locators.Length;
 	}
 }
