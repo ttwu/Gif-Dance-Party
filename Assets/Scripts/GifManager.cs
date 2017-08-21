@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Collections;
 
 /// <summary>
 /// This class manages the animated gif url options.  It both controls what will
@@ -15,6 +16,7 @@ using UnityEngine;
 public class GifManager : MonoBehaviour
 {
 	private Dictionary<string, AnimatedGifTexture> animatedTextureCompCache;
+	private Dictionary<string, Texture2D> textureCache;
 	private string[] urls;
 	private int currentGifIndex = 0;
 	private AnimatedGifTexture currentAnimatedGifComponent;
@@ -36,6 +38,7 @@ public class GifManager : MonoBehaviour
 	private void Start()
 	{
 		animatedTextureCompCache = new Dictionary<string, AnimatedGifTexture>();
+		textureCache = new Dictionary<string, Texture2D>();
 		urls = GiphyQuery.GetGifUrls(0);
 		currentGifIndex = 0;
 
@@ -54,26 +57,35 @@ public class GifManager : MonoBehaviour
 	public void InitializePreview()
 	{
 		var currentUrl = urls[currentGifIndex];
-		LoadUrlIntoPreview(currentUrl);
+		StartCoroutine(LoadUrlIntoPreview(currentUrl));
 	}
 
 	/// <summary>
 	/// Given a url it will it will make or reuse a cached animated gif component for it in the preview.
 	/// </summary>
 	/// <param name="currentUrl"></param>
-	void LoadUrlIntoPreview(string currentUrl)
+	IEnumerator LoadUrlIntoPreview(string currentUrl)
 	{
-		//TODO - need smarts to know when to disable an animating component when there are no more instances of it on the board
+		if (currentAnimatedGifComponent != null)
+		{
+			currentAnimatedGifComponent.RemoveUIImageFromUpdate(previewImage);
+		}
 
 		if (!animatedTextureCompCache.ContainsKey(currentUrl))
 		{
 			currentAnimatedGifComponent = gameObject.AddComponent<AnimatedGifTexture>();
-			currentAnimatedGifComponent.LoadAndShowGif(currentUrl, previewImage);
+			yield return currentAnimatedGifComponent.LoadAndShowGif(currentUrl, previewImage);
 			animatedTextureCompCache.Add(currentUrl, currentAnimatedGifComponent);
+			textureCache.Add(currentUrl, currentAnimatedGifComponent.GetTexture());
 		}
 		else
 		{
 			currentAnimatedGifComponent = animatedTextureCompCache[currentUrl];
+			currentAnimatedGifComponent.AddImageToUpdate(previewImage);
+			previewImage.material.SetTexture("_MainTex", textureCache[currentUrl]);
+			previewImage.material.SetTextureOffset("_MainTex", new Vector2(0f, 0f));
+			previewImage.material.SetTextureScale("_MainTex", new Vector2(currentAnimatedGifComponent.GetOffsetStep(), 1f));
+			previewImage.SetMaterialDirty();
 		}
 	}
 
@@ -87,7 +99,7 @@ public class GifManager : MonoBehaviour
 		if (currentGifIndex < 0) currentGifIndex += urls.Length;
 
 		var currentGifUrl = urls[currentGifIndex];
-		LoadUrlIntoPreview(currentGifUrl);
+		StartCoroutine(LoadUrlIntoPreview(currentGifUrl));
 	}
 
 	/// <summary>

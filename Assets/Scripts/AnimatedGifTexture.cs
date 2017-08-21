@@ -22,7 +22,7 @@ public class AnimatedGifTexture : MonoBehaviour {
 
 	//TODO - use an array in case a large animated gif causes us to run out of space on one Texture2D
 	public Texture2D texture;
-	private HashSet<UnityEngine.UI.Image> uiImagesToUpdate;
+	public HashSet<UnityEngine.UI.Image> uiImagesToUpdate;
 	private RectTransform rectTransform;
 
 	public int FramesPerSecond = 10;
@@ -32,6 +32,8 @@ public class AnimatedGifTexture : MonoBehaviour {
 	private float timeOfLastUpdate = 0;
 	private string gifUrl;
 
+	private int instanceCount = 0;
+
 	private void Awake()
 	{
 		uiImagesToUpdate = new HashSet<UnityEngine.UI.Image>();
@@ -39,8 +41,9 @@ public class AnimatedGifTexture : MonoBehaviour {
 
 	/// <summary>  
 	/// Load gif from new url, sets textures and materials.
+	/// TODO - test with invalid links or png/jpg
 	/// </summary>  
-	public void LoadAndShowGif(string newUrl, UnityEngine.UI.Image targetImage)
+	public IEnumerator LoadAndShowGif(string newUrl, UnityEngine.UI.Image targetImage)
 	{
 		gifUrl = newUrl;
 		if (!uiImagesToUpdate.Contains(targetImage))
@@ -49,23 +52,10 @@ public class AnimatedGifTexture : MonoBehaviour {
 		}
 		if (texture == null)
 		{
-			LoadAndShowGif();
-		}
-	}
-
-
-	/// <summary>  
-	/// Load gif from current url, sets textures and materials.
-	/// TODO - test with invalid links or png/jpg
-	/// </summary>  
-	public void LoadAndShowGif()
-	{
-		rectTransform = GetComponent<RectTransform>();
-		timeUpdateStep = 1f / FramesPerSecond;
-		currentXTileOffset = 0f;
-		if (texture == null)
-		{
-			StartCoroutine(GetWebGifAndSetTexture(gifUrl));
+			rectTransform = GetComponent<RectTransform>();
+			timeUpdateStep = 1f / FramesPerSecond;
+			currentXTileOffset = 0f;
+			yield return GetWebGifAndSetTexture(gifUrl);
 		}
 	}
 
@@ -151,12 +141,20 @@ public class AnimatedGifTexture : MonoBehaviour {
 		return tex;
 	}
 
+	public void RemoveUIImageFromUpdate(UnityEngine.UI.Image uiImage)
+	{
+		if (uiImagesToUpdate.Contains(uiImage))
+		{
+			uiImagesToUpdate.Remove(uiImage);
+		}
+	}
+
 	/// <summary>  
 	///  Every frame check if we need to update the frame.
 	///  TODO - can probably optimize by using coroutine for update instead of using the Update method.
 	/// </summary>  
 	void Update () {
-		if (numberOfFrames == 0 || uiImagesToUpdate == null) return;
+		if (numberOfFrames == 0 || uiImagesToUpdate.Count == 0) return;
 
 		if (Time.time-timeOfLastUpdate > timeUpdateStep)
 		{
@@ -170,6 +168,16 @@ public class AnimatedGifTexture : MonoBehaviour {
 				uiImage.material.SetTextureOffset("_MainTex", new Vector2(currentXTileOffset, 0f));
 			}
 		}
+	}
+
+	public Texture2D GetTexture()
+	{
+		return texture;
+	}
+
+	public float GetOffsetStep()
+	{
+		return offsetStep;
 	}
 }
 
